@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS events;
+DROP TYPE IF EXISTS eventtype;
+DROP TYPE IF EXISTS mealtype;
+DROP TYPE IF EXISTS workouttype;
