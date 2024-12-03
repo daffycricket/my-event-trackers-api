@@ -8,12 +8,6 @@ class EventType(str, Enum):
     MEAL = "MEAL"
     WORKOUT = "WORKOUT"
 
-class MealType(str, Enum):
-    breakfast = "breakfast"
-    lunch = "lunch"
-    dinner = "dinner"
-    snack = "snack"
-
 class WorkoutType(str, Enum):
     cardio = "cardio"
     strength = "strength"
@@ -21,15 +15,13 @@ class WorkoutType(str, Enum):
     sport = "sport"
 
 class FoodItem(BaseModel):
-    id: str
-    date: datetime
-    notes: Optional[str] = None
+    name: str
+    quantity: float
 
     model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})
 
 class MealData(BaseModel):
     foods: List[FoodItem]
-    type: MealType
 
     model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})
 

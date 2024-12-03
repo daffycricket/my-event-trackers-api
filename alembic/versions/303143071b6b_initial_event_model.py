@@ -1,8 +1,8 @@
-"""Create event model with proper enums
+"""Initial event model
 
-Revision ID: 05b24b165945
+Revision ID: 303143071b6b
 Revises: 
-Create Date: 2024-12-03 01:13:54.235915
+Create Date: 2024-12-03 01:40:38.437285
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '05b24b165945'
+revision: str = '303143071b6b'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
