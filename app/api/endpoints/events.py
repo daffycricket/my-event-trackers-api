@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from datetime import datetime
 
-from ...database import get_db
-from ...schemas.event import Event, EventCreate, EventUpdate
-from ...models.event import Event as EventModel
+from app.database import get_db
+from app.schemas.event import Event, EventCreate, EventUpdate
+from app.models import Event as EventModel, MealItem
 
 router = APIRouter()
 
@@ -32,8 +32,29 @@ def read_events(
 
 @router.post("/", response_model=Event)
 def create_event(event: EventCreate, db: Session = Depends(get_db)):
-    db_event = EventModel(**event.model_dump())
-    db.add(db_event)
+    event_data = event.model_dump()
+    
+    # Si c'est un événement de type MEAL, on extrait les meal_items
+    if event_data["type"] == "MEAL" and "foods" in event_data["data"]:
+        foods = event_data["data"].pop("foods", [])
+        
+        # Créer l'événement sans les foods
+        db_event = EventModel(**event_data)
+        db.add(db_event)
+        
+        # Ajouter les meal_items
+        for food in foods:
+            meal_item = MealItem(
+                event=db_event,
+                name=food["name"],
+                quantity=food["quantity"]
+            )
+            db.add(meal_item)
+    else:
+        # Pour les autres types d'événements
+        db_event = EventModel(**event_data)
+        db.add(db_event)
+    
     db.commit()
     db.refresh(db_event)
     return db_event

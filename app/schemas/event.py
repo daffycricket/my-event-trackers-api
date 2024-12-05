@@ -1,52 +1,46 @@
+from typing import List, Optional, Dict, Any
+from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, List, Union
 from uuid import UUID
-from pydantic import BaseModel, Field, ConfigDict
-from enum import Enum
 
-class EventType(str, Enum):
-    MEAL = "MEAL"
-    WORKOUT = "WORKOUT"
-
-class WorkoutType(str, Enum):
-    cardio = "cardio"
-    strength = "strength"
-    flexibility = "flexibility"
-    sport = "sport"
-
-class FoodItem(BaseModel):
+# Schémas pour MealItem
+class MealItemBase(BaseModel):
     name: str
     quantity: float
 
-    model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})
+class MealItemCreate(MealItemBase):
+    pass
 
-class MealData(BaseModel):
-    foods: List[FoodItem]
+class MealItem(MealItemBase):
+    id: UUID
+    event_id: UUID
+    created_at: datetime
+    updated_at: datetime
 
-    model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})
+    class Config:
+        from_attributes = True
 
-class WorkoutData(BaseModel):
-    duration: int
-    type: WorkoutType
-    calories_burned: Optional[int] = None
-
+# Schémas pour Event
 class EventBase(BaseModel):
-    type: EventType
+    type: str
     date: datetime
+    data: Dict[str, Any]
     notes: Optional[str] = None
-    data: Union[MealData, WorkoutData]
-
-    model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})
 
 class EventCreate(EventBase):
     pass
 
 class EventUpdate(EventBase):
-    pass
+    type: Optional[str] = None
+    date: Optional[datetime] = None
+    data: Optional[Dict[str, Any]] = None
+    notes: Optional[str] = None
 
 class Event(EventBase):
     id: UUID
     created_at: datetime
     updated_at: datetime
+    meal_items: List[MealItem] = []
 
-    model_config = ConfigDict(from_attributes=True) 
+    class Config:
+        from_attributes = True 

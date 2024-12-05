@@ -3,6 +3,7 @@ import enum
 from uuid import uuid4
 from datetime import datetime
 import json
+from sqlalchemy.orm import relationship
 
 from .base import BaseModel
 
@@ -36,6 +37,8 @@ class Event(BaseModel):
     date = Column(DateTime, nullable=False)
     data = Column(JSON, nullable=False)
     notes = Column(String, nullable=True)
+    
+    meal_items = relationship("MealItem", back_populates="event", cascade="all, delete-orphan")
 
 @event.listens_for(Event, 'before_insert')
 @event.listens_for(Event, 'before_update')
