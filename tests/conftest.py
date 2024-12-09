@@ -1,38 +1,31 @@
 import pytest
+import os
+import sys
+from pathlib import Path
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+# Ajouter le répertoire racine au PYTHONPATH
+root_dir = Path(__file__).resolve().parent.parent
+sys.path.append(str(root_dir))
+
+from app.database import get_db
 from app.main import app
-from app.database import Base, get_db
 from tests.config import TEST_DATABASE_URL
 
-def test_db_connection():
-    print("\nTesting database connection...")
-    try:
-        test_engine = create_engine(TEST_DATABASE_URL)
-        with test_engine.connect() as connection:
-            result = connection.execute(text("SELECT 1"))
-            print("✓ Database connection successful!")
-        return True
-    except Exception as e:
-        print(f"✗ Database connection failed: {str(e)}")
-        raise e
-
-# Exécuter le test de connexion avant de démarrer les tests
-test_db_connection()
-
+# Créer l'engine pour les tests
 engine = create_engine(TEST_DATABASE_URL)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 @pytest.fixture(scope="function")
 def db_session():
-    db = TestingSessionLocal()
+    session = TestingSessionLocal()
     try:
-        yield db
+        yield session
     finally:
-        db.rollback()  # Annule les changements du test
-        db.close()
+        session.rollback()
+        session.close()
 
 @pytest.fixture(scope="function")
 def client(db_session):

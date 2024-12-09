@@ -2,7 +2,8 @@ import pytest
 from datetime import datetime, timezone
 from uuid import uuid4
 
-@pytest.mark.skip(reason="Focus sur test_get_event")
+BASE_URL = "http://localhost:9095/api/events"
+
 def test_create_event(client):
     event_data = {
         "type": "MEAL",
@@ -11,7 +12,7 @@ def test_create_event(client):
         "notes": "Test meal"
     }
     
-    response = client.post("/api/v1/events", json=event_data)
+    response = client.post(BASE_URL, json=event_data)
     assert response.status_code == 200
 
 def test_get_event(client):
@@ -24,7 +25,7 @@ def test_get_event(client):
     }
     
     print("\n----- Test Get Event -----")
-    create_url = "http://localhost:9095/api/v1/events"
+    create_url = BASE_URL
     print(f"POST {create_url}")
     print(f"Request body: {event_data}")
     create_response = client.post(create_url, json=event_data)
@@ -33,7 +34,7 @@ def test_get_event(client):
     
     event_id = create_response.json()["id"]
     
-    get_url = f"http://localhost:9095/api/v1/events/{event_id}"
+    get_url = f"{BASE_URL}/{event_id}"
     print(f"\nGET {get_url}")
     response = client.get(get_url)
     print(f"Response status: {response.status_code}")
@@ -43,13 +44,11 @@ def test_get_event(client):
     assert response.json()["type"] == "MEAL"
     assert response.json()["notes"] == "Test dinner"
 
-@pytest.mark.skip(reason="Focus sur test_get_event")
 def test_get_nonexistent_event(client):
     random_id = str(uuid4())
-    response = client.get(f"/api/v1/events/{random_id}")
+    response = client.get(f"{BASE_URL}/{random_id}")
     assert response.status_code == 404
 
-@pytest.mark.skip(reason="Focus sur test_get_event")
 def test_search_events(client):
     # Créer quelques événements
     events = [
@@ -68,12 +67,11 @@ def test_search_events(client):
     ]
     
     for event in events:
-        client.post("/api/v1/events", json=event)
+        client.post(BASE_URL, json=event)
     
-    response = client.get("/api/v1/events/search?q=lunch")
+    response = client.get(f"{BASE_URL}/search?q=lunch")
     assert response.status_code == 200
 
-@pytest.mark.skip(reason="Focus sur test_get_event")
 def test_list_events(client):
     # Créer plusieurs événements
     events = [
@@ -92,8 +90,7 @@ def test_list_events(client):
     ]
     
     for event in events:
-        client.post("/api/v1/events", json=event)
+        client.post(BASE_URL, json=event)
     
-    response = client.get("/api/v1/events")
+    response = client.get(BASE_URL)
     assert response.status_code == 200
-  

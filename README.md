@@ -135,13 +135,13 @@ La documentation interactive de l'API est disponible aux URLs suivants une fois 
 
 ```bash
 # Lancer les tests
-pytest tests/ -v
+PYTHONPATH=$PYTHONPATH:. pytest tests/ -v -s
 
 # Lancer les tests avec couverture
-pytest --cov=app tests/
+PYTHONPATH=$PYTHONPATH:. pytest tests/ -v -s --cov=app tests/
 
 # Lancer les tests avec rapport de couverture détaillé
-pytest --cov=app --cov-report=term-missing tests/
+PYTHONPATH=$PYTHONPATH:. pytest tests/ -v -s --cov=app --cov-report=term-missing tests/
 ```
 
 ## Migrations de base de données

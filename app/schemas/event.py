@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from uuid import UUID
 
@@ -7,6 +7,8 @@ from uuid import UUID
 class MealItemBase(BaseModel):
     name: str
     quantity: float
+    
+    model_config = ConfigDict(from_attributes=True)
 
 class MealItemCreate(MealItemBase):
     pass
@@ -16,9 +18,8 @@ class MealItem(MealItemBase):
     event_id: UUID
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
+    
+    model_config = ConfigDict(from_attributes=True)
 
 # Schémas pour Event
 class EventBase(BaseModel):
@@ -26,6 +27,8 @@ class EventBase(BaseModel):
     date: datetime
     data: Dict[str, Any]
     notes: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)
 
 class EventCreate(EventBase):
     pass
@@ -41,6 +44,5 @@ class Event(EventBase):
     created_at: datetime
     updated_at: datetime
     meal_items: List[MealItem] = []
-
-    class Config:
-        from_attributes = True 
+    
+    model_config = ConfigDict(from_attributes=True) 

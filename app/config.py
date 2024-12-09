@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from typing import Optional
+from pydantic import ConfigDict
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -18,23 +18,26 @@ load_dotenv(ENV_FILE, override=True)  # override=True force l'écrasement des va
 class Settings(BaseSettings):
     # Base
     PROJECT_NAME: str = "My Event Tracker API"
-    API_V1_STR: str = "/api/v1"
+    API_V1_STR: str = "/api"
     
     # Database
-    POSTGRES_USER: str = "default_user"
-    POSTGRES_PASSWORD: str = "default_password"
-    POSTGRES_DB: str = "default_db"
-    POSTGRES_HOST: str = "default_host"
-    POSTGRES_PORT: str = "5432"
+    DB_USER: str
+    DB_PASSWORD: str
+    DB_HOST: str
+    DB_PORT: str
+    DB_NAME: str
     
     @property
     def DATABASE_URL(self) -> str:        
-        password = quote_plus(self.POSTGRES_PASSWORD)
-        url = f"postgresql://{self.POSTGRES_USER}:{password}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        password = quote_plus(self.DB_PASSWORD)
+        url = f"postgresql://{self.DB_USER}:{password}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
         return url
 
-    class Config:
-        env_file = ENV_FILE
+    # Utiliser ConfigDict au lieu de Config
+    model_config = ConfigDict(
+        env_file=ENV_FILE,
+        case_sensitive=True
+    )
 
 settings = Settings()
 print("Settings initialized") 

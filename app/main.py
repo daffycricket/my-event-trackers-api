@@ -3,16 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .api.endpoints import (
-    auth,
-    events,
-    export,
-    config,
-    users
+    events_endpoint,
+    auth_endpoint,
+    users_endpoint,
+    config_endpoint,
+    export_endpoint
 )
 from .database import engine, Base
-
-# Création des tables dans la base de données
-Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -29,11 +26,35 @@ app.add_middleware(
 )
 
 # Inclusion des routers
-app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-app.include_router(events.router, prefix="/api/events", tags=["events"])
-app.include_router(export.router, prefix="/api/export", tags=["export"])
-app.include_router(config.router, prefix="/api/config", tags=["config"])
-app.include_router(users.router, prefix="/api/users", tags=["users"])
+app.include_router(
+    events_endpoint.router,
+    prefix="/api/events",
+    tags=["events"]
+)
+
+app.include_router(
+    auth_endpoint.router,
+    prefix="/api/auth",
+    tags=["auth"]
+)
+
+app.include_router(
+    users_endpoint.router,
+    prefix="/api/users",
+    tags=["users"]
+)
+
+app.include_router(
+    config_endpoint.router,
+    prefix="/api/config",
+    tags=["config"]
+)
+
+app.include_router(
+    export_endpoint.router,
+    prefix="/api/export",
+    tags=["export"]
+)
 
 @app.get("/")
 async def root():
@@ -46,4 +67,7 @@ async def root():
 import uvicorn
 
 if __name__ == "__main__":
+    print("Creating database tables...")
+    Base.metadata.create_all(bind=engine)
+    print("Database tables created!")
     uvicorn.run("app.main:app", host="0.0.0.0", port=9095, reload=True) 

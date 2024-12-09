@@ -1,19 +1,16 @@
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import DeclarativeBase
 
 from .config import settings
 
-# Création du moteur SQLAlchemy
-engine = create_engine(settings.DATABASE_URL)
+# Nouvelle façon de créer la base
+class Base(DeclarativeBase):
+    pass
 
-# Configuration de la session
+engine = create_engine(settings.DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Classe de base pour les modèles
-Base = declarative_base()
-
-# Dependency pour FastAPI
 def get_db():
     db = SessionLocal()
     try:
