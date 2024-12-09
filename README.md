@@ -21,6 +21,8 @@ Cette API fournit les services backend nécessaires pour l'application My Event 
 
 ## Installation
 
+### Option 1 : Installation locale
+
 1. Prérequis
 
 Assurez-vous d'avoir installé
@@ -55,6 +57,34 @@ cp .env.example .env
 # Modifiez les variables d'environnement selon votre configuration
 ```
 
+### Option 2 : Installation avec Docker
+
+1. Prérequis
+- Docker
+- Docker Compose
+
+2. Configuration
+```bash
+# Créez un fichier .env à la racine du projet
+cp .env.example .env
+# Modifiez les variables d'environnement selon votre configuration
+```
+
+3. Démarrage avec Docker
+```bash
+# Construire et démarrer les conteneurs
+docker-compose up --build
+
+# Démarrer en mode détaché (background)
+docker-compose up --build -d
+
+# Arrêter les conteneurs
+docker-compose down
+
+# Redémarrer l'API (en cas de changements)
+docker-compose restart api
+```
+
 ## Démarrage
 
 ```bash
@@ -86,6 +116,13 @@ app/
   ├── schemas/       # Schémas Pydantic
   ├── database.py    # Configuration base de données
   └── main.py        # Point d'entrée
+tests/              # Tests
+.env                # Variables d'environnement (DB_URL, etc.)
+.env.example        # Example de configuration
+.dockerignore       # Fichiers ignorés par Docker
+docker-compose.yml  # Configuration Docker Compose
+Dockerfile         # Configuration de l'image Docker
+requirements.txt   # Dépendances Python
 ```
 
 ## Documentation API
@@ -128,4 +165,54 @@ alembic upgrade head
 ## Licence
 
 Ce projet est sous licence MIT - voir le fichier [LICENSE.md](LICENSE.md) pour plus de détails.
+
+## Docker
+
+### Fichiers de configuration
+- `Dockerfile` : Configuration de l'image Docker
+- `docker-compose.yml` : Orchestration des services
+- `.dockerignore` : Liste des fichiers à ne pas inclure dans l'image
+- `.env` : Variables d'environnement (base de données, etc.)
+
+### Commandes Docker utiles
+```bash
+# Construction et démarrage
+docker-compose up --build        # Construire et démarrer les conteneurs
+docker-compose up --build -d     # Idem, en mode détaché (background)
+
+# Gestion des conteneurs
+docker-compose down             # Arrêter et supprimer les conteneurs
+docker-compose stop            # Arrêter les conteneurs sans les supprimer
+docker-compose start           # Démarrer les conteneurs existants
+docker-compose restart api     # Redémarrer uniquement le service API
+
+# Logs et debug
+docker-compose logs           # Voir tous les logs
+docker-compose logs -f api    # Suivre les logs de l'API
+docker-compose ps            # Voir l'état des conteneurs
+
+# Accès au conteneur
+docker-compose exec api bash  # Ouvrir un terminal dans le conteneur API
+
+# Nettoyage
+docker-compose down --volumes  # Supprimer les conteneurs et les volumes
+docker system prune           # Nettoyer les ressources non utilisées
+```
+
+### Variables d'environnement (.env)
+```bash
+POSTGRES_USER=events_tracker_appuser
+POSTGRES_PASSWORD=your_password
+POSTGRES_DB=events_tracker_testsdb
+POSTGRES_HOST=your_host
+POSTGRES_PORT=25432
+```
+
+### Développement avec Docker
+Le code est monté en volume dans le conteneur, permettant le rechargement automatique du code en développement.
+
+**Note importante :** 
+- Les changements de code simples sont automatiquement pris en compte
+- Les changements structurels nécessitent un `docker-compose restart api`
+- Les modifications de dépendances nécessitent un `docker-compose up --build`
 

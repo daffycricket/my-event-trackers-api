@@ -1,5 +1,6 @@
 from typing import List, Optional
 from uuid import UUID
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -29,6 +30,8 @@ def read_events(
         query = query.filter(EventModel.date <= to_date)
     
     return query.order_by(EventModel.date.desc()).offset(skip).limit(limit).all()
+
+
 
 @router.post("/", response_model=Event)
 def create_event(event: EventCreate, db: Session = Depends(get_db)):
@@ -65,6 +68,10 @@ def create_event(event: EventCreate, db: Session = Depends(get_db)):
     except Exception as e:
         print(f"Error creating event: {str(e)}")
         raise
+
+@router.get("/fakeroute")
+def get_fakeroute_event():
+    return {"message": "Le serveur fonctionne carrément tout le temps !"}
 
 @router.get("/{event_id}", response_model=Event)
 def read_event(event_id: UUID, db: Session = Depends(get_db)):

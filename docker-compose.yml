@@ -1,17 +1,12 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:14-alpine
-    container_name: event_tracker_db
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: event_tracker
+  api:
+    build: .
     ports:
-      - "5432:5432"
+      - "9095:9095"
+    environment:
+      - DATABASE_URL=postgresql://events_tracker_appuser:th1sP@ssw0rd1sB@d@88.161.169.84:25432/events_tracker_testsdb
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data: 
+      - ./:/code
+    command: uvicorn app.main:app --host 0.0.0.0 --port 9095 --reload --reload-dir /code
