@@ -1,0 +1,1 @@
+curl -X POST http://localhost:9095/api/events/ -H "Content-Type: application/json" -d '{"type": "MEAL", "date": "2024-03-08T14:30:00Z", "data": {"meal_type": "lunch", "foods": [{"name": "Poulet", "quantity": 200}]}, "notes": "Déjeuner test"}'

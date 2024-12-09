@@ -32,32 +32,39 @@ def read_events(
 
 @router.post("/", response_model=Event)
 def create_event(event: EventCreate, db: Session = Depends(get_db)):
+    print(f"Received event data: {event}")
     event_data = event.model_dump()
+    print(f"Event data after model_dump: {event_data}")
     
-    # Si c'est un événement de type MEAL, on extrait les meal_items
-    if event_data["type"] == "MEAL" and "foods" in event_data["data"]:
-        foods = event_data["data"].pop("foods", [])
+    try:
+        # Si c'est un événement de type MEAL, on extrait les meal_items
+        if event_data["type"] == "MEAL" and "foods" in event_data["data"]:
+            foods = event_data["data"].pop("foods", [])
+            
+            # Créer l'événement sans les foods
+            db_event = EventModel(**event_data)
+            db.add(db_event)
+            
+            # Ajouter les meal_items
+            for food in foods:
+                meal_item = MealItem(
+                    event=db_event,
+                    name=food["name"],
+                    quantity=food["quantity"]
+                )
+                db.add(meal_item)
+        else:
+            # Pour les autres types d'événements
+            db_event = EventModel(**event_data)
+            db.add(db_event)
         
-        # Créer l'événement sans les foods
-        db_event = EventModel(**event_data)
-        db.add(db_event)
-        
-        # Ajouter les meal_items
-        for food in foods:
-            meal_item = MealItem(
-                event=db_event,
-                name=food["name"],
-                quantity=food["quantity"]
-            )
-            db.add(meal_item)
-    else:
-        # Pour les autres types d'événements
-        db_event = EventModel(**event_data)
-        db.add(db_event)
-    
-    db.commit()
-    db.refresh(db_event)
-    return db_event
+        db.commit()
+        db.refresh(db_event)
+        print(f"Created event: {db_event.id}")
+        return db_event
+    except Exception as e:
+        print(f"Error creating event: {str(e)}")
+        raise
 
 @router.get("/{event_id}", response_model=Event)
 def read_event(event_id: UUID, db: Session = Depends(get_db)):
@@ -85,4 +92,47 @@ def delete_event(event_id: UUID, db: Session = Depends(get_db)):
     
     db.delete(event)
     db.commit()
-    return {"status": "success", "message": "Event deleted"} 
+    return {"status": "success", "message": "Event deleted"}
+
+@router.get("/search")
+async def search_events(
+    q: Optional[str] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None
+):
+    # Mock data
+    return {
+        "items": [
+            {
+                "id": 1,
+                "title": "Déjeuner avec équipe",
+                "start_time": "2024-03-21T12:00:00+01:00", 
+                "end_time": "2024-03-21T13:30:00+01:00",
+                "timezone": "Europe/Paris",
+                "meal_items": [
+                    {
+                        "id": "chicken_breast",
+                        "name": "Blanc de poulet",
+                        "quantity": 150,
+                        "unit_type": "GRAM"
+                    }
+                ]
+            },
+            {
+                "id": 2,
+                "title": "Dîner en famille",
+                "start_time": "2024-03-21T19:00:00+01:00",
+                "end_time": "2024-03-21T20:30:00+01:00", 
+                "timezone": "Europe/Paris",
+                "meal_items": [
+                    {
+                        "id": "salmon",
+                        "name": "Saumon",
+                        "quantity": 200,
+                        "unit_type": "GRAM"
+                    }
+                ]
+            }
+        ],
+        "total": 2
+    } 

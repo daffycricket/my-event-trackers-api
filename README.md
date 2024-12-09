@@ -37,13 +37,17 @@ source venv/bin/activate  # Linux/MacOS
 .\venv\Scripts\activate  # Windows
 ```
 
-3. Installation des dépendances
-
+3. Installation des dépendances principales
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Configuration
+4. Installation des dépendances de test
+```bash
+pip install -r requirements-test.txt
+```
+
+5. Configuration
 
 ```bash
 # Créez un fichier .env à la racine du projet
@@ -93,14 +97,14 @@ La documentation interactive de l'API est disponible aux URLs suivants une fois 
 ## Tests
 
 ```bash
-# Installation des dépendances de test
-pip install pytest pytest-cov
-
 # Lancer les tests
-pytest
+pytest tests/ -v
 
 # Lancer les tests avec couverture
-pytest --cov=app
+pytest --cov=app tests/
+
+# Lancer les tests avec rapport de couverture détaillé
+pytest --cov=app --cov-report=term-missing tests/
 ```
 
 ## Migrations de base de données
