@@ -1,0 +1,1 @@
+from .static_foods import STATIC_FOODS_FR, STATIC_FOODS_EN 

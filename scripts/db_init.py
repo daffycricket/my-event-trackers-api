@@ -1,79 +1,57 @@
+import asyncio
 from app.database import Base, engine
-from app.models.event import Event  # Import existant
-from app.models.food import Food    # Nouvel import
+from app.models.event import Event
+from app.models.food import Food
+from app.models.user import User
 from sqlalchemy import text
 from scripts.data.static_foods import STATIC_FOODS_FR, STATIC_FOODS_EN
 import sys
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
-def drop_tables():
-    print("\n----- Dropping all tables -----")
-    try:
-        Base.metadata.drop_all(bind=engine)
-        print("✅ All tables dropped successfully")
-    except Exception as e:
-        print(f"❌ Error dropping tables: {str(e)}")
-        sys.exit(1)
-
-def load_static_data(session):
-    print("\n----- Loading static data -----")
-    try:
-        # Charger les aliments
-        for food_data in STATIC_FOODS_FR + STATIC_FOODS_EN:
-            food = Food(**food_data)
-            session.add(food)
-        
-        session.commit()
-        print("✅ Static data loaded successfully")
-    except Exception as e:
-        session.rollback()
-        print(f"❌ Error loading static data: {str(e)}")
-        sys.exit(1)
-
-def init_db(drop_first=False):
+async def init_db(drop_all: bool = False):
     print("\n----- Database Initialization -----")
-    print(f"Using database URL: {engine.url}")
+    print(f"Using database URL: {str(engine.url).replace(engine.url.password or '', '***')}")
     
     try:
-        # Vérifier la connexion
-        with engine.connect() as connection:
-            result = connection.execute(text("SELECT 1"))
-            print("✅ Database connection successful")
+        # Test de connexion
+        async with engine.begin() as conn:
+            await conn.execute(text("SELECT 1"))
+        print("✅ Database connection successful\n")
         
-        if drop_first:
-            drop_tables()
+        if drop_all:
+            print("----- Dropping all tables -----")
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.drop_all)
+            print("✅ All tables dropped successfully\n")
         
-        # Créer les tables
-        print("\nCreating database tables...")
-        Base.metadata.create_all(bind=engine)
-        print("✅ Database tables created")
+        print("Creating database tables...")
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        print("✅ Database tables created\n")
         
-        # Vérifier les tables créées
-        with engine.connect() as connection:
-            result = connection.execute(text("""
-                SELECT table_name 
-                FROM information_schema.tables 
-                WHERE table_schema = 'public'
-            """))
-            tables = result.fetchall()
-            print("\nTables in database:")
-            for table in tables:
-                print(f"• {table[0]}")
+        # Liste des tables
+        async with engine.begin() as conn:
+            result = await conn.execute(text(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+            ))
+            tables = result.scalars().all()
         
-        # Créer une session pour charger les données
-        Session = sessionmaker(bind=engine)
-        session = Session()
+        print("Tables in database:")
+        for table in tables:
+            print(f"• {table}")
         
-        # Charger les données statiques
-        load_static_data(session)
-        
-        session.close()
+        # Insertion des données statiques
+        print("\n----- Loading static data -----")
+        async with AsyncSession(engine) as session:
+            for food in STATIC_FOODS_FR + STATIC_FOODS_EN:
+                session.add(Food(**food))
+            await session.commit()
+        print("✅ Static data loaded successfully")
         
     except Exception as e:
         print(f"❌ Error: {str(e)}")
         sys.exit(1)
 
 if __name__ == "__main__":
-    # Si --drop est passé en argument, on drop d'abord
-    drop_first = "--drop" in sys.argv
-    init_db(drop_first) 
+    drop_all = "--drop" in sys.argv
+    asyncio.run(init_db(drop_all)) 

@@ -1,19 +1,23 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
+from app.config import settings
 
-from .config import settings
+# URL de la base de données avec le préfixe async
+SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL.replace(
+    "postgresql://", "postgresql+asyncpg://"
+)
 
-# Nouvelle façon de créer la base
-class Base(DeclarativeBase):
-    pass
+# Création du moteur asynchrone
+engine = create_async_engine(SQLALCHEMY_DATABASE_URL)
 
-engine = create_engine(settings.DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Session asynchrone
+async_session = sessionmaker(
+    engine, class_=AsyncSession, expire_on_commit=False
+)
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close() 
+Base = declarative_base()
+
+# Dépendance pour obtenir une session
+async def get_db():
+    async with async_session() as session:
+        yield session 

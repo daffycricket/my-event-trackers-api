@@ -25,7 +25,7 @@ class MealItem(MealItemBase):
 class EventBase(BaseModel):
     type: str
     date: datetime
-    data: Dict[str, Any]
+    data: Optional[Dict] = None
     notes: Optional[str] = None
     
     model_config = ConfigDict(from_attributes=True)
@@ -34,15 +34,12 @@ class EventCreate(EventBase):
     pass
 
 class EventUpdate(EventBase):
-    type: Optional[str] = None
-    date: Optional[datetime] = None
-    data: Optional[Dict[str, Any]] = None
-    notes: Optional[str] = None
+    pass
 
 class Event(EventBase):
     id: UUID
     created_at: datetime
     updated_at: datetime
-    meal_items: List[MealItem] = []
+    user_id: UUID
     
     model_config = ConfigDict(from_attributes=True) 

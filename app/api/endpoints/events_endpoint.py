@@ -4,68 +4,57 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from datetime import datetime
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.database import get_db
 from app.schemas.event import Event, EventCreate, EventUpdate
-from app.models import Event as EventModel, MealItem
+from app.models import Event as EventModel, Food
+from app.models.user import User
+from app.auth.config import fastapi_users
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/api/events",
+    tags=["events"]
+)
 
-@router.get("/", response_model=List[Event])
-def read_events(
+current_active_user = fastapi_users.current_user(active=True)
+
+@router.get("", response_model=List[Event])
+async def read_events(
     skip: int = 0,
     limit: int = 100,
-    type: Optional[str] = Query(None, description="Filter by event type (meal/workout)"),
-    from_date: Optional[datetime] = Query(None, description="Filter events from this date"),
-    to_date: Optional[datetime] = Query(None, description="Filter events to this date"),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user)
 ):
-    query = db.query(EventModel)
-    
-    if type:
-        query = query.filter(EventModel.type == type)
-    if from_date:
-        query = query.filter(EventModel.date >= from_date)
-    if to_date:
-        query = query.filter(EventModel.date <= to_date)
-    
-    return query.order_by(EventModel.date.desc()).offset(skip).limit(limit).all()
+    query = select(EventModel).where(EventModel.user_id == user.id).offset(skip).limit(limit)
+    result = await db.execute(query)
+    return result.scalars().all()
 
-@router.post("/", response_model=Event)
-def create_event(event: EventCreate, db: Session = Depends(get_db)):
-    print(f"Received event data: {event}")
-    event_data = event.model_dump()
-    print(f"Event data after model_dump: {event_data}")
+@router.post("", response_model=Event)
+async def create_event(
+    event: EventCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user)
+):
+    now = datetime.utcnow()
+    # Convertir la date en naive datetime
+    event_date = event.date.replace(tzinfo=None)
     
-    try:
-        # Si c'est un événement de type MEAL, on extrait les meal_items
-        if event_data["type"] == "MEAL" and "foods" in event_data["data"]:
-            foods = event_data["data"].pop("foods", [])
-            
-            # Créer l'événement sans les foods
-            db_event = EventModel(**event_data)
-            db.add(db_event)
-            
-            # Ajouter les meal_items
-            for food in foods:
-                meal_item = MealItem(
-                    event=db_event,
-                    name=food["name"],
-                    quantity=food["quantity"]
-                )
-                db.add(meal_item)
-        else:
-            # Pour les autres types d'événements
-            db_event = EventModel(**event_data)
-            db.add(db_event)
-        
-        db.commit()
-        db.refresh(db_event)
-        print(f"Created event: {db_event.id}")
-        return db_event
-    except Exception as e:
-        print(f"Error creating event: {str(e)}")
-        raise
+    db_event = EventModel(
+        id=uuid.uuid4(),
+        type=event.type,
+        date=event_date,  # Date sans timezone
+        data=event.data,
+        notes=event.notes,
+        user_id=user.id,
+        created_at=now,
+        updated_at=now
+    )
+    db.add(db_event)
+    await db.commit()
+    await db.refresh(db_event)
+    return db_event
 
 @router.get("/version")
 def get_version():
@@ -114,4 +103,8 @@ def delete_event(event_id: UUID, db: Session = Depends(get_db)):
     db.delete(event)
     db.commit()
     return {"status": "success", "message": "Event deleted"}
+
+@router.get("/test")
+def test_reload():
+    return {"message": "Test reload working!"}
  

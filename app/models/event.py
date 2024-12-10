@@ -1,47 +1,22 @@
-from sqlalchemy import Column, String, DateTime, JSON, Enum, event
-import enum
-from uuid import uuid4
-from datetime import datetime
-import json
+from sqlalchemy import Column, String, DateTime, JSON, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+from datetime import datetime
+import uuid
+from app.database import Base
+from app.models.food import Food
 
-from .base import BaseModel
-
-class EventType(str, enum.Enum):
-    MEAL = "MEAL"
-    WORKOUT = "WORKOUT"
-
-class MealType(str, enum.Enum):
-    breakfast = "breakfast"
-    lunch = "lunch"
-    dinner = "dinner"
-    snack = "snack"
-
-class WorkoutType(str, enum.Enum):
-    cardio = "cardio"
-    strength = "strength"
-    flexibility = "flexibility"
-    sport = "sport"
-
-def json_serializer(obj):
-    if isinstance(obj, datetime):
-        return obj.isoformat()
-    if isinstance(obj, enum.Enum):
-        return obj.value
-    raise TypeError(f'Type {type(obj)} not serializable')
-
-class Event(BaseModel):
+class Event(Base):
     __tablename__ = "events"
 
-    type = Column(Enum(EventType), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    type = Column(String, nullable=False)
     date = Column(DateTime, nullable=False)
-    data = Column(JSON, nullable=False)
-    notes = Column(String, nullable=True)
-    
-    meal_items = relationship("MealItem", back_populates="event", cascade="all, delete-orphan")
+    data = Column(JSON)
+    notes = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
 
-@event.listens_for(Event, 'before_insert')
-@event.listens_for(Event, 'before_update')
-def serialize_json_data(mapper, connection, target):
-    if target.data:
-        target.data = json.loads(json.dumps(target.data, default=json_serializer))
+    # Relation avec meal_items
+    meal_items = relationship("Food", secondary="meal_items", back_populates="events")

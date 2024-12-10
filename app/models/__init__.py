@@ -1,5 +1,5 @@
-from .base import BaseModel
+from .user import User
 from .event import Event
-from .meal_item import MealItem
+from .food import Food
 
-__all__ = ['BaseModel', 'Event', 'MealItem'] 
+__all__ = ["User", "Event", "Food"] 
