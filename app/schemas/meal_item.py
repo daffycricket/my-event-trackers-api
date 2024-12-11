@@ -1,9 +1,17 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
-class MealItemData(BaseModel):
-    food_id: int
+class MealItemBase(BaseModel):
+    name: str
     quantity: float
 
-# On garde MealItem identique à MealItemData car on ne renvoie pas plus d'infos
-class MealItem(MealItemData):
-    model_config = ConfigDict(from_attributes=True) 
+class MealItemCreate(MealItemBase):
+    pass
+
+class MealItemInDB(MealItemBase):
+    id: int
+    event_id: int
+    food_id: int
+
+class MealItem(MealItemBase):
+    """Utilisé pour les réponses API"""
+    pass

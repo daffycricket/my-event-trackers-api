@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Optional
 from app.models.event import EventType
+from app.schemas.meal_item import MealItem
 
 class MealItemBase(BaseModel):
     food_id: int
@@ -15,20 +16,22 @@ class EventBase(BaseModel):
     date: datetime
     notes: Optional[str] = None
 
-class EventCreate(EventBase):
-    meal_items: Optional[List[MealItemBase]] = None
+class EventCreate(BaseModel):
+    type: str
+    date: datetime
+    notes: Optional[str] = None
+    meal_items: Optional[List[MealItem]] = None
 
-class EventUpdate(EventBase):
-    type: Optional[EventType] = None
-    date: Optional[datetime] = None
-    meal_items: Optional[List[MealItemBase]] = None
+class EventUpdate(BaseModel):
+    notes: Optional[str] = None
+    meal_items: Optional[List[MealItem]] = None
 
 class Event(EventBase):
     id: int
     user_id: int
     created_at: datetime
     updated_at: datetime
-    meal_items: List[MealItemBase] = []
+    meal_items: Optional[List[MealItem]] = None
 
     class Config:
         from_attributes = True

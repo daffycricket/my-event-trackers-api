@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, insert
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
@@ -14,8 +14,9 @@ from app.models.event import Event as EventModel
 from app.models import Food
 from app.models.user import User
 from app.auth.config import fastapi_users
-from app.models.meal_item import MealItem
+from app.models.meal_item import MealItem as MealItemModel
 from sqlalchemy.exc import IntegrityError
+from app.schemas.meal_item import MealItem
 
 router = APIRouter(
     prefix="/api/events",
@@ -27,20 +28,18 @@ current_active_user = fastapi_users.current_user(active=True)
 @router.get("", response_model=List[Event])
 async def get_events(
     db: AsyncSession = Depends(get_db),
-    user = Depends(current_active_user)
+    user: User = Depends(current_active_user)
 ):
     stmt = (
         select(EventModel)
         .where(EventModel.user_id == user.id)
-        .options(selectinload(EventModel.meal_items))
+        .options(
+            selectinload(EventModel.meal_items).selectinload(MealItemModel.food)
+        )
     )
     
     result = await db.execute(stmt)
     events = result.unique().scalars().all()
-    
-    # Forcer le chargement des relations avant la sérialisation
-    for event in events:
-        _ = event.meal_items
     
     return [
         Event(
@@ -51,7 +50,13 @@ async def get_events(
             user_id=event.user_id,
             created_at=event.created_at,
             updated_at=event.updated_at,
-            meal_items=event.meal_items
+            meal_items=[
+                MealItem(
+                    name=item.food.name,
+                    quantity=item.quantity
+                )
+                for item in event.meal_items
+            ]
         )
         for event in events
     ]
@@ -62,54 +67,58 @@ async def create_event(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(current_active_user)
 ):
-    now = datetime.utcnow()
+    # Créer l'event
     db_event = EventModel(
         type=event.type,
         date=event.date,
         notes=event.notes,
         user_id=user.id,
-        created_at=now,
-        updated_at=now
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow()
     )
     db.add(db_event)
-    await db.flush()  # Pour obtenir l'ID de l'event
+    await db.flush()
 
     # Si c'est un repas, gérer les meal_items
     if event.type == "MEAL" and event.meal_items:
-        # Vérifier que tous les food_id existent
-        food_ids = [item.food_id for item in event.meal_items]
-        stmt = select(Food).where(Food.id.in_(food_ids))
+        # Récupérer les foods par leur nom
+        food_names = [item.name for item in event.meal_items]
+        stmt = select(Food).where(Food.name.in_(food_names))
         result = await db.execute(stmt)
-        existing_foods = {food.id for food in result.scalars().all()}
-        
-        if not all(food_id in existing_foods for food_id in food_ids):
-            await db.rollback()
-            raise HTTPException(status_code=400, detail="Invalid food_id referenced")
+        foods = {food.name: food.id for food in result.scalars().all()}
+
+        # Vérifier que tous les noms existent
+        missing_foods = [name for name in food_names if name not in foods]
+        if missing_foods:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Aliments non trouvés : {', '.join(missing_foods)}"
+            )
 
         # Créer les meal_items
-        try:
-            for item in event.meal_items:
-                meal_item = MealItem(
+        for item in event.meal_items:
+            await db.execute(
+                insert(MealItemModel).values(
                     event_id=db_event.id,
-                    food_id=item.food_id,
+                    food_id=foods[item.name],
                     quantity=item.quantity
                 )
-                db.add(meal_item)
-        except IntegrityError:
-            await db.rollback()
-            raise HTTPException(status_code=400, detail="Duplicate food in meal")
+            )
 
     await db.commit()
-    
+
     # Recharger l'event avec ses relations
     stmt = (
         select(EventModel)
         .where(EventModel.id == db_event.id)
-        .options(selectinload(EventModel.meal_items))
+        .options(
+            selectinload(EventModel.meal_items).selectinload(MealItemModel.food)
+        )
     )
     result = await db.execute(stmt)
     db_event = result.unique().scalar_one()
-    
+
+    # Convertir en schéma de réponse
     return Event(
         id=db_event.id,
         type=db_event.type,
@@ -118,7 +127,13 @@ async def create_event(
         user_id=db_event.user_id,
         created_at=db_event.created_at,
         updated_at=db_event.updated_at,
-        meal_items=db_event.meal_items
+        meal_items=[
+            MealItem(
+                name=item.food.name,
+                quantity=item.quantity
+            )
+            for item in db_event.meal_items
+        ] if db_event.meal_items else None
     )
 
 @router.get("/version")
@@ -147,22 +162,22 @@ async def get_event(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(current_active_user)
 ):
+    # Charger l'event avec ses relations en une seule requête
     stmt = (
         select(EventModel)
-        .where(EventModel.id == event_id)
-        .options(selectinload(EventModel.meal_items))
+        .where(EventModel.id == event_id, EventModel.user_id == user.id)
+        .options(
+            selectinload(EventModel.meal_items).selectinload(MealItemModel.food)
+        )
     )
+    
     result = await db.execute(stmt)
     event = result.unique().scalar_one_or_none()
     
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-    if event.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to access this event")
     
-    # Forcer le chargement des relations
-    _ = event.meal_items
-    
+    # Convertir explicitement en schéma de réponse
     return Event(
         id=event.id,
         type=event.type,
@@ -171,7 +186,13 @@ async def get_event(
         user_id=event.user_id,
         created_at=event.created_at,
         updated_at=event.updated_at,
-        meal_items=event.meal_items
+        meal_items=[
+            MealItem(
+                name=item.food.name,
+                quantity=item.quantity
+            )
+            for item in event.meal_items
+        ] if event.meal_items else None
     )
 
 @router.put("/{event_id}", response_model=Event)
@@ -181,49 +202,85 @@ async def update_event(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(current_active_user)
 ):
-    # Récupérer l'event existant
-    event = await db.get(EventModel, event_id)
-    if not event:
+    # Récupérer l'event existant avec ses relations
+    stmt = (
+        select(EventModel)
+        .where(EventModel.id == event_id, EventModel.user_id == user.id)
+        .options(
+            selectinload(EventModel.meal_items).selectinload(MealItemModel.food)
+        )
+    )
+    result = await db.execute(stmt)
+    db_event = result.unique().scalar_one_or_none()
+    
+    if not db_event:
         raise HTTPException(status_code=404, detail="Event not found")
-    if event.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to modify this event")
 
-    # Mettre à jour les champs simples
+    # Mettre à jour les notes si fournies
     if event_update.notes is not None:
-        event.notes = event_update.notes
-    if event_update.date is not None:
-        event.date = event_update.date
-    if event_update.type is not None:
-        event.type = event_update.type
+        db_event.notes = event_update.notes
+        db_event.updated_at = datetime.utcnow()
 
-    # Mettre à jour les meal_items
+    # Mettre à jour les meal_items si fournis
     if event_update.meal_items is not None:
         # Supprimer les anciens meal_items
         await db.execute(
-            delete(MealItem).where(MealItem.event_id == event_id)
+            delete(MealItemModel).where(MealItemModel.event_id == event_id)
         )
         
+        # Récupérer les foods par leur nom
+        food_names = [item.name for item in event_update.meal_items]
+        stmt = select(Food).where(Food.name.in_(food_names))
+        result = await db.execute(stmt)
+        foods = {food.name: food.id for food in result.scalars().all()}
+
+        # Vérifier que tous les noms existent
+        missing_foods = [name for name in food_names if name not in foods]
+        if missing_foods:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Aliments non trouvés : {', '.join(missing_foods)}"
+            )
+
         # Créer les nouveaux meal_items
         for item in event_update.meal_items:
-            db_meal_item = MealItem(
-                event_id=event_id,
-                food_id=item.food_id,
-                quantity=item.quantity
+            await db.execute(
+                insert(MealItemModel).values(
+                    event_id=event_id,
+                    food_id=foods[item.name],
+                    quantity=item.quantity
+                )
             )
-            db.add(db_meal_item)
 
     await db.commit()
-    await db.refresh(event, ["meal_items"])  # Charger explicitement meal_items
-    
+
+    # Recharger l'event avec ses relations mises à jour
+    stmt = (
+        select(EventModel)
+        .where(EventModel.id == event_id)
+        .options(
+            selectinload(EventModel.meal_items).selectinload(MealItemModel.food)
+        )
+    )
+    result = await db.execute(stmt)
+    db_event = result.unique().scalar_one()
+
+    # Convertir en schéma de réponse
     return Event(
-        id=event.id,
-        type=event.type,
-        date=event.date,
-        notes=event.notes,
-        user_id=event.user_id,
-        created_at=event.created_at,
-        updated_at=event.updated_at,
-        meal_items=event.meal_items
+        id=db_event.id,
+        type=db_event.type,
+        date=db_event.date,
+        notes=db_event.notes,
+        user_id=db_event.user_id,
+        created_at=db_event.created_at,
+        updated_at=db_event.updated_at,
+        meal_items=[
+            MealItem(
+                name=item.food.name,
+                quantity=item.quantity
+            )
+            for item in db_event.meal_items
+        ] if db_event.meal_items else None
     )
 
 @router.delete("/{event_id}")
