@@ -14,12 +14,6 @@ async def load_foods(conn):
                 text("""
                     INSERT INTO foods (name, category, unit_type, default_quantity, language, localized_label)
                     VALUES (:name, :category, :unit_type, :default_quantity, :language, :localized_label)
-                    ON CONFLICT (name) DO UPDATE SET
-                        category = EXCLUDED.category,
-                        unit_type = EXCLUDED.unit_type,
-                        default_quantity = EXCLUDED.default_quantity,
-                        language = EXCLUDED.language,
-                        localized_label = EXCLUDED.localized_label
                 """),
                 food
             )

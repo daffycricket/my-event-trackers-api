@@ -24,7 +24,7 @@ class Food(Base):
     __tablename__ = "foods"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    name = Column(String, unique=True, nullable=False)
+    name = Column(String, nullable=False)
     category = Column(Enum(FoodCategory), nullable=False)
     unit_type = Column(Enum(UnitType), nullable=False)
     default_quantity = Column(Float, nullable=False)
