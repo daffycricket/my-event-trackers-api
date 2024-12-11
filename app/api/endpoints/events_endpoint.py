@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 
 from app.database import get_db
 from app.schemas.event import Event, EventCreate, EventUpdate
@@ -138,8 +138,9 @@ async def update_event(
     if event_update.meal_items is not None:
         # Supprimer les anciens meal_items
         await db.execute(
-            select(MealItem).where(MealItem.event_id == event_id)
+            delete(MealItem).where(MealItem.event_id == event_id)
         )
+        
         # Créer les nouveaux meal_items
         for item in event_update.meal_items:
             db_meal_item = MealItem(
