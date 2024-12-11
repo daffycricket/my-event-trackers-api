@@ -216,3 +216,38 @@ Le code est monté en volume dans le conteneur, permettant le rechargement autom
 - Les changements structurels nécessitent un `docker-compose restart api`
 - Les modifications de dépendances nécessitent un `docker-compose up --build`
 
+## Scripts de test
+
+### Script de test d'intégration
+
+Le script `scripts/shell/curls_int.sh` permet de tester l'ensemble des endpoints de l'API en effectuant des appels séquentiels.
+
+#### Utilisation
+
+```bash
+# Mode compact (affichage minimal)
+./scripts/shell/curls_int.sh
+
+# Mode détaillé (avec les commandes et leurs résultats)
+./scripts/shell/curls_int.sh --verbose
+```
+
+#### Modes d'affichage
+
+1. Mode compact (par défaut)
+   - Affiche uniquement les statuts (🟢/🔴) et les titres des appels
+   - Format très condensé pour une lecture rapide des résultats
+   - Exemple :
+     ```
+     🟢 0. Récupération des foods
+     🟢 1. Création de l'utilisateur
+     🟢 2. Login pour obtenir le token
+     ```
+
+2. Mode verbose (avec `--verbose`)
+   - Affiche les statuts et titres
+   - Montre la commande curl exécutée
+   - Affiche le résultat complet de la commande
+   - Sépare chaque appel par une ligne vide
+   - Utile pour le debugging et l'analyse détaillée
+

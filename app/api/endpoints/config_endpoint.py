@@ -1,48 +1,33 @@
-from fastapi import APIRouter, Query, Depends
-from typing import List
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.database import get_db
-from app.schemas.food import Food
-from app.models.food import Food as FoodModel
 from sqlalchemy import select
+from typing import List
 
-router = APIRouter()
+from app.database import get_db
+from app.models.food import Food as FoodModel
+from app.models.label import Label
+from app.schemas.food import Food as FoodSchema
 
-@router.get("/foods", response_model=List[Food])
-async def get_food_items(
-    language: str = Query("fr", description="Language code (fr, en, etc.)"),
-    db: AsyncSession = Depends(get_db)
-):
-    result = await db.execute(
-        select(FoodModel)
-        .where(FoodModel.language == language)
-    )
+router = APIRouter(prefix="/config/foods")
+
+@router.get("", response_model=List[FoodSchema])
+async def get_foods(language: str = "fr", db: AsyncSession = Depends(get_db)):
+    # D'abord récupérer tous les foods
+    result = await db.execute(select(FoodModel))
     foods = result.scalars().all()
     
-    return [
-        {
-            "id": food.name,
-            "name": food.localized_label,
-            "category": food.category,
-            "unit_type": food.unit_type,
-            "default_quantity": food.default_quantity
-        }
-        for food in foods
-    ]
-
-@router.get("/timezones")
-async def get_timezones():
-    return {
-        "timezones": [
-            "Europe/Paris",
-            "America/New_York",
-            "Asia/Tokyo"
-        ]
-    }
-
-@router.get("/app-version")
-async def get_app_version():
-    return {
-        "min_version": "1.0.0",
-        "latest_version": "1.2.0"
-    } 
+    # Puis récupérer leurs labels dans la langue demandée
+    for food in foods:
+        label_result = await db.execute(
+            select(Label)
+            .where(
+                Label.entity_type == "food",
+                Label.entity_id == food.id,
+                Label.language == language
+            )
+        )
+        label = label_result.scalar_one_or_none()
+        if label:
+            food.label = label.value
+    
+    return foods 

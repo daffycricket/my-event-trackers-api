@@ -19,10 +19,11 @@ class UnitType(str, Enum):
     SPOON = "spoon"
 
 class Food(BaseModel):
-    id: str  # On utilisera le champ 'name' de la BDD
-    name: str  # On utilisera le champ 'localized_label' de la BDD
+    name: str  # identifiant technique
+    label: str  # label localisé
     category: FoodCategory
     unit_type: UnitType
-    default_quantity: int
+    default_quantity: float
 
-    model_config = ConfigDict(from_attributes=True)
+    class Config:
+        from_attributes = True

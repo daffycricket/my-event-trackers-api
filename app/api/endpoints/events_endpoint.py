@@ -6,10 +6,12 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.schemas.event import Event, EventCreate, EventUpdate
-from app.models import Event as EventModel, Food
+from app.models.event import Event as EventModel
+from app.models import Food
 from app.models.user import User
 from app.auth.config import fastapi_users
 from app.models.meal_item import MealItem
@@ -23,15 +25,36 @@ router = APIRouter(
 current_active_user = fastapi_users.current_user(active=True)
 
 @router.get("", response_model=List[Event])
-async def read_events(
-    skip: int = 0,
-    limit: int = 100,
+async def get_events(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(current_active_user)
+    user = Depends(current_active_user)
 ):
-    query = select(EventModel).where(EventModel.user_id == user.id).offset(skip).limit(limit)
-    result = await db.execute(query)
-    return result.scalars().all()
+    stmt = (
+        select(EventModel)
+        .where(EventModel.user_id == user.id)
+        .options(selectinload(EventModel.meal_items))
+    )
+    
+    result = await db.execute(stmt)
+    events = result.unique().scalars().all()
+    
+    # Forcer le chargement des relations avant la sérialisation
+    for event in events:
+        _ = event.meal_items
+    
+    return [
+        Event(
+            id=event.id,
+            type=event.type,
+            date=event.date,
+            notes=event.notes,
+            user_id=event.user_id,
+            created_at=event.created_at,
+            updated_at=event.updated_at,
+            meal_items=event.meal_items
+        )
+        for event in events
+    ]
 
 @router.post("", response_model=Event)
 async def create_event(
@@ -55,8 +78,9 @@ async def create_event(
     if event.type == "MEAL" and event.meal_items:
         # Vérifier que tous les food_id existent
         food_ids = [item.food_id for item in event.meal_items]
-        foods = await db.execute(select(Food).where(Food.id.in_(food_ids)))
-        existing_foods = {food.id for food in foods.scalars().all()}
+        stmt = select(Food).where(Food.id.in_(food_ids))
+        result = await db.execute(stmt)
+        existing_foods = {food.id for food in result.scalars().all()}
         
         if not all(food_id in existing_foods for food_id in food_ids):
             await db.rollback()
@@ -76,8 +100,26 @@ async def create_event(
             raise HTTPException(status_code=400, detail="Duplicate food in meal")
 
     await db.commit()
-    await db.refresh(db_event)
-    return db_event
+    
+    # Recharger l'event avec ses relations
+    stmt = (
+        select(EventModel)
+        .where(EventModel.id == db_event.id)
+        .options(selectinload(EventModel.meal_items))
+    )
+    result = await db.execute(stmt)
+    db_event = result.unique().scalar_one()
+    
+    return Event(
+        id=db_event.id,
+        type=db_event.type,
+        date=db_event.date,
+        notes=db_event.notes,
+        user_id=db_event.user_id,
+        created_at=db_event.created_at,
+        updated_at=db_event.updated_at,
+        meal_items=db_event.meal_items
+    )
 
 @router.get("/version")
 def get_version():
@@ -105,12 +147,32 @@ async def get_event(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(current_active_user)
 ):
-    event = await db.get(EventModel, event_id)
+    stmt = (
+        select(EventModel)
+        .where(EventModel.id == event_id)
+        .options(selectinload(EventModel.meal_items))
+    )
+    result = await db.execute(stmt)
+    event = result.unique().scalar_one_or_none()
+    
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     if event.user_id != user.id:
         raise HTTPException(status_code=403, detail="Not authorized to access this event")
-    return event
+    
+    # Forcer le chargement des relations
+    _ = event.meal_items
+    
+    return Event(
+        id=event.id,
+        type=event.type,
+        date=event.date,
+        notes=event.notes,
+        user_id=event.user_id,
+        created_at=event.created_at,
+        updated_at=event.updated_at,
+        meal_items=event.meal_items
+    )
 
 @router.put("/{event_id}", response_model=Event)
 async def update_event(
@@ -151,8 +213,18 @@ async def update_event(
             db.add(db_meal_item)
 
     await db.commit()
-    await db.refresh(event)
-    return event
+    await db.refresh(event, ["meal_items"])  # Charger explicitement meal_items
+    
+    return Event(
+        id=event.id,
+        type=event.type,
+        date=event.date,
+        notes=event.notes,
+        user_id=event.user_id,
+        created_at=event.created_at,
+        updated_at=event.updated_at,
+        meal_items=event.meal_items
+    )
 
 @router.delete("/{event_id}")
 def delete_event(event_id: UUID, db: Session = Depends(get_db)):

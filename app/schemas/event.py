@@ -1,29 +1,35 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, List
-from .meal_item import MealItem, MealItemData
+from typing import List, Optional
+from app.models.event import EventType
+
+class MealItemBase(BaseModel):
+    food_id: int
+    quantity: float
+
+    class Config:
+        from_attributes = True
 
 class EventBase(BaseModel):
-    type: str
+    type: EventType
     date: datetime
     notes: Optional[str] = None
 
 class EventCreate(EventBase):
-    meal_items: Optional[List[MealItemData]] = None
+    meal_items: Optional[List[MealItemBase]] = None
 
-class EventUpdate(BaseModel):
-    type: Optional[str] = None
+class EventUpdate(EventBase):
+    type: Optional[EventType] = None
     date: Optional[datetime] = None
-    notes: Optional[str] = None
-    meal_items: Optional[List[MealItemData]] = None
+    meal_items: Optional[List[MealItemBase]] = None
 
-# Pour la réponse, on cache les champs techniques
 class Event(EventBase):
     id: int
-    meal_items: List[MealItem] = []
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+    meal_items: List[MealItemBase] = []
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        # On exclut les champs techniques de la sérialisation
-        exclude={"created_at", "updated_at"}
-    ) 
+    class Config:
+        from_attributes = True
+        populate_by_name = True 
