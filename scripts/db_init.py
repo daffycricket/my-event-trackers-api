@@ -1,57 +1,74 @@
 import asyncio
-from app.database import Base, engine
-from app.models.event import Event
-from app.models.food import Food
-from app.models.user import User
 from sqlalchemy import text
+from app.database import engine
+from app.models.food import Food
+from app.models.meal_item import MealItem
 from scripts.data.static_foods import STATIC_FOODS_FR, STATIC_FOODS_EN
-import sys
-from sqlalchemy.ext.asyncio import AsyncSession
+
+async def load_foods(conn):
+    print("\n----- Loading foods data -----")
+    try:
+        # Insérer les aliments français et anglais
+        for food in STATIC_FOODS_FR + STATIC_FOODS_EN:
+            await conn.execute(
+                text("""
+                    INSERT INTO foods (name, category, unit_type, default_quantity, language, localized_label)
+                    VALUES (:name, :category, :unit_type, :default_quantity, :language, :localized_label)
+                    ON CONFLICT (name) DO UPDATE SET
+                        category = EXCLUDED.category,
+                        unit_type = EXCLUDED.unit_type,
+                        default_quantity = EXCLUDED.default_quantity,
+                        language = EXCLUDED.language,
+                        localized_label = EXCLUDED.localized_label
+                """),
+                food
+            )
+        print("✅ Foods data loaded successfully")
+    except Exception as e:
+        print(f"❌ Error loading foods: {e}")
+        raise
 
 async def init_db(drop_all: bool = False):
     print("\n----- Database Initialization -----")
-    print(f"Using database URL: {str(engine.url).replace(engine.url.password or '', '***')}")
+    print(f"Using database URL: {str(engine.url).replace(engine.url.password, '***')}")
     
     try:
-        # Test de connexion
         async with engine.begin() as conn:
+            # Test de connexion
             await conn.execute(text("SELECT 1"))
-        print("✅ Database connection successful\n")
-        
-        if drop_all:
-            print("----- Dropping all tables -----")
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.drop_all)
-            print("✅ All tables dropped successfully\n")
-        
-        print("Creating database tables...")
-        async with engine.begin() as conn:
+            print("✅ Database connection successful\n")
+
+            if drop_all:
+                print("----- Dropping all tables -----")
+                # Drop tables in order
+                await conn.execute(text("DROP TABLE IF EXISTS meal_items CASCADE"))
+                await conn.execute(text("DROP TABLE IF EXISTS events CASCADE"))
+                await conn.execute(text("DROP TABLE IF EXISTS foods CASCADE"))
+                await conn.execute(text("DROP TABLE IF EXISTS users CASCADE"))
+                print("✅ All tables dropped successfully\n")
+
+            # Création des tables
+            print("----- Creating tables -----")
+            from app.models.base import Base
+            from app.models.user import User
+            from app.models.event import Event
+            from app.models.food import Food
+            from app.models.meal_item import MealItem
+            
             await conn.run_sync(Base.metadata.create_all)
-        print("✅ Database tables created\n")
-        
-        # Liste des tables
-        async with engine.begin() as conn:
-            result = await conn.execute(text(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
-            ))
-            tables = result.scalars().all()
-        
-        print("Tables in database:")
-        for table in tables:
-            print(f"• {table}")
-        
-        # Insertion des données statiques
-        print("\n----- Loading static data -----")
-        async with AsyncSession(engine) as session:
-            for food in STATIC_FOODS_FR + STATIC_FOODS_EN:
-                session.add(Food(**food))
-            await session.commit()
-        print("✅ Static data loaded successfully")
-        
+            print("✅ Tables created successfully")
+
+            # Chargement des aliments
+            await load_foods(conn)
+
     except Exception as e:
-        print(f"❌ Error: {str(e)}")
-        sys.exit(1)
+        print(f"❌ Error: {e}")
+        raise
 
 if __name__ == "__main__":
-    drop_all = "--drop" in sys.argv
-    asyncio.run(init_db(drop_all)) 
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--drop', action='store_true', help='Drop all tables before creating them')
+    args = parser.parse_args()
+    
+    asyncio.run(init_db(args.drop)) 

@@ -1,5 +1,4 @@
 from typing import Optional, Any
-import uuid
 from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, FastAPIUsers
 from fastapi_users.authentication import (
@@ -9,7 +8,6 @@ from fastapi_users.authentication import (
 )
 from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi_users.schemas import BaseUserCreate
 
 from app.models.user import User
 from app.database import get_db
@@ -31,15 +29,15 @@ auth_backend = AuthenticationBackend(
 )
 
 # User Manager pour la logique métier
-class UserManager(BaseUserManager[User, uuid.UUID]):
+class UserManager(BaseUserManager[User, int]):
     reset_password_token_secret = SECRET
     verification_token_secret = SECRET
 
     async def on_after_register(self, user: User, request: Optional[Request] = None):
         print(f"User {user.id} has registered.")
 
-    def parse_id(self, value: Any) -> uuid.UUID:
-        return uuid.UUID(value)
+    def parse_id(self, value: Any) -> int:
+        return int(value)
 
 # Fonction pour obtenir le UserManager
 async def get_user_db(session: AsyncSession = Depends(get_db)):
@@ -49,7 +47,7 @@ async def get_user_manager(user_db=Depends(get_user_db)):
     yield UserManager(user_db)
 
 # Instance principale de FastAPIUsers
-fastapi_users = FastAPIUsers[User, uuid.UUID](
+fastapi_users = FastAPIUsers[User, int](
     get_user_manager,
     [auth_backend],
 )
@@ -57,8 +55,3 @@ fastapi_users = FastAPIUsers[User, uuid.UUID](
 # Utilitaires pour protéger les routes
 current_active_user = fastapi_users.current_user(active=True)
 current_superuser = fastapi_users.current_user(active=True, superuser=True)
-
-# Schémas pour l'authentification
-class UserCreate(BaseUserCreate):
-    email: str
-    password: str 

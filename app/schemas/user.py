@@ -1,9 +1,8 @@
 from typing import Optional
 from fastapi_users import schemas
-from uuid import UUID
 
-class UserRead(schemas.BaseUser[UUID]):
-    id: UUID
+class UserRead(schemas.BaseUser[int]):
+    id: int
     email: str
     is_active: bool = True
     is_superuser: bool = False

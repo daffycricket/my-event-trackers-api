@@ -1,45 +1,29 @@
-from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
-from uuid import UUID
+from typing import Optional, List
+from .meal_item import MealItem, MealItemData
 
-# Schémas pour MealItem
-class MealItemBase(BaseModel):
-    name: str
-    quantity: float
-    
-    model_config = ConfigDict(from_attributes=True)
-
-class MealItemCreate(MealItemBase):
-    pass
-
-class MealItem(MealItemBase):
-    id: UUID
-    event_id: UUID
-    created_at: datetime
-    updated_at: datetime
-    
-    model_config = ConfigDict(from_attributes=True)
-
-# Schémas pour Event
 class EventBase(BaseModel):
     type: str
     date: datetime
-    data: Optional[Dict] = None
     notes: Optional[str] = None
-    
-    model_config = ConfigDict(from_attributes=True)
 
 class EventCreate(EventBase):
-    pass
+    meal_items: Optional[List[MealItemData]] = None
 
-class EventUpdate(EventBase):
-    pass
+class EventUpdate(BaseModel):
+    type: Optional[str] = None
+    date: Optional[datetime] = None
+    notes: Optional[str] = None
+    meal_items: Optional[List[MealItemData]] = None
 
+# Pour la réponse, on cache les champs techniques
 class Event(EventBase):
-    id: UUID
-    created_at: datetime
-    updated_at: datetime
-    user_id: UUID
-    
-    model_config = ConfigDict(from_attributes=True) 
+    id: int
+    meal_items: List[MealItem] = []
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        # On exclut les champs techniques de la sérialisation
+        exclude={"created_at", "updated_at"}
+    ) 
