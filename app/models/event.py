@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BigInteger, String, DateTime, ForeignKey, Enum, func
+from sqlalchemy import Column, BigInteger, String, DateTime, ForeignKey, Enum, func, JSON
 from sqlalchemy.orm import relationship
 from app.database import Base
 import enum
@@ -14,6 +14,7 @@ class Event(Base):
     type = Column(Enum(EventType), nullable=False)
     date = Column(DateTime(timezone=True), nullable=False)
     notes = Column(String, nullable=True)
+    data = Column(JSON, nullable=False, server_default='{}')
     user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

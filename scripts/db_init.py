@@ -61,22 +61,29 @@ async def init_db(drop_all: bool = False):
                 await conn.execute(text("DROP TABLE IF EXISTS labels CASCADE"))
                 await conn.execute(text("DROP TABLE IF EXISTS foods CASCADE"))
                 await conn.execute(text("DROP TABLE IF EXISTS users CASCADE"))
-                print("✅ All tables dropped successfully\n")
+                await conn.execute(text("DROP TABLE IF EXISTS alembic_version"))
+                await conn.execute(text("DROP TYPE IF EXISTS foodcategory CASCADE"))
+                await conn.execute(text("DROP TYPE IF EXISTS unittype CASCADE"))
+                print("✅ All tables and types dropped successfully\n")
 
-            # Création des tables
-            print("----- Creating tables -----")
-            from app.models.base import Base
-            from app.models.user import User
-            from app.models.event import Event
-            from app.models.food import Food
-            from app.models.meal_item import MealItem
-            from app.models.label import Label
-            
-            await conn.run_sync(Base.metadata.create_all)
-            print("✅ Tables created successfully")
+                # Drop des types enum
+                await conn.execute(text("DROP TYPE IF EXISTS foodcategory CASCADE"))
+                await conn.execute(text("DROP TYPE IF EXISTS unittype CASCADE"))
+                
+                # Création des tables
+                print("----- Creating tables -----")
+                from app.models.base import Base
+                from app.models.user import User
+                from app.models.event import Event
+                from app.models.food import Food
+                from app.models.meal_item import MealItem
+                from app.models.label import Label
+                
+                await conn.run_sync(Base.metadata.create_all)
+                print("✅ Tables created successfully")
 
-            # Chargement des aliments
-            await load_foods(conn)
+                # Chargement des aliments
+                await load_foods(conn)
 
     except Exception as e:
         print(f"❌ Error: {e}")

@@ -1,26 +1,24 @@
-from fastapi import APIRouter, Depends
-from app.auth.config import auth_backend, fastapi_users
-from app.schemas.user import UserCreate, UserRead
+from fastapi import APIRouter, HTTPException
 
 router = APIRouter()
 
-# Routes d'authentification
-router.include_router(
-    fastapi_users.get_auth_router(auth_backend),
-    prefix="/auth",
-    tags=["auth"],
-)
+@router.post("/register")
+async def register(email: str, password: str, name: str):
+    return {
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        "user": {
+            "id": 1,
+            "email": email,
+            "name": name
+        }
+    }
 
-# Route d'enregistrement
-router.include_router(
-    fastapi_users.get_register_router(UserRead, UserCreate),
-    prefix="/auth",
-    tags=["auth"],
-)
+@router.post("/login")
+async def login(email: str, password: str):
+    return {
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    }
 
-# Route utilisateur courant
-router.include_router(
-    fastapi_users.get_users_router(UserRead, UserRead),
-    prefix="/users",
-    tags=["users"],
-) 
+@router.post("/logout")
+async def logout():
+    return {"message": "Déconnecté avec succès"} 

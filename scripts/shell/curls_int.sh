@@ -42,8 +42,8 @@ handle_response() {
 API_URL="http://localhost:9095"
 
 # 0. Récupération des foods
-command="curl -X GET \"$API_URL/config/foods?language=fr\""
-response=$(curl -s -w "\n%{http_code}" "$API_URL/config/foods?language=fr")
+command="curl -X GET \"$API_URL/api/config/foods?language=fr\""
+response=$(curl -s -w "\n%{http_code}" "$API_URL/api/config/foods?language=fr")
 http_code=$(echo "$response" | tail -n1)
 content=$(echo "$response" | sed '$d')
 handle_response "Récupération des foods" "$content" "$http_code" "$command"
@@ -71,6 +71,7 @@ command="curl -X POST \"$API_URL/api/events\" -H \"Authorization: Bearer $TOKEN\
     \"type\": \"MEAL\",
     \"date\": \"2024-03-15T12:30:00\",
     \"notes\": \"Déjeuner\",
+    \"data\": {\"meal_type\": \"lunch\"},
     \"meal_items\": [{\"name\": \"apple\", \"quantity\": 100.0}, {\"name\": \"banana\", \"quantity\": 200.0}]
 }'"
 response=$(curl -s -w "\n%{http_code}" -X POST "$API_URL/api/events" \
@@ -80,6 +81,7 @@ response=$(curl -s -w "\n%{http_code}" -X POST "$API_URL/api/events" \
     "type": "MEAL",
     "date": "2024-03-15T12:30:00",
     "notes": "Déjeuner",
+    "data": {"meal_type": "lunch"},
     "meal_items": [{"name": "apple", "quantity": 100.0}, {"name": "banana", "quantity": 200.0}]
 }')
 http_code=$(echo "$response" | tail -n1)
@@ -107,6 +109,7 @@ command="curl -X POST \"$API_URL/api/events\" -H \"Authorization: Bearer $TOKEN\
     \"type\": \"MEAL\",
     \"date\": \"2024-03-15T12:30:00\",
     \"notes\": \"Déjeuner invalide\",
+    \"data\": {\"meal_type\": \"lunch\"},
     \"meal_items\": [{\"name\": \"invalid_food\", \"quantity\": 100.0}]
 }'"
 response=$(curl -s -w "\n%{http_code}" -X POST "$API_URL/api/events" \
@@ -116,6 +119,7 @@ response=$(curl -s -w "\n%{http_code}" -X POST "$API_URL/api/events" \
     "type": "MEAL",
     "date": "2024-03-15T12:30:00",
     "notes": "Déjeuner invalide",
+    "data": {"meal_type": "lunch"},
     "meal_items": [{"name": "invalid_food", "quantity": 100.0}]
 }')
 http_code=$(echo "$response" | tail -n1)
@@ -125,6 +129,7 @@ handle_response "Création d'un event avec un food_id invalide" "$content" "$htt
 # 7. Mise à jour d'un event
 command="curl -X PUT \"$API_URL/api/events/1\" -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\" -d '{
     \"notes\": \"Déjeuner modifié\",
+    \"data\": {\"meal_type\": \"lunch\"},
     \"meal_items\": [{\"name\": \"apple\", \"quantity\": 150.0}]
 }'"
 response=$(curl -s -w "\n%{http_code}" -X PUT "$API_URL/api/events/1" \
@@ -132,6 +137,7 @@ response=$(curl -s -w "\n%{http_code}" -X PUT "$API_URL/api/events/1" \
     -H "Content-Type: application/json" \
     -d '{
     "notes": "Déjeuner modifié",
+    "data": {"meal_type": "lunch"},
     "meal_items": [{"name": "apple", "quantity": 150.0}]
 }')
 http_code=$(echo "$response" | tail -n1)
@@ -145,3 +151,63 @@ response=$(curl -s -w "\n%{http_code}" -X GET "$API_URL/api/events" \
 http_code=$(echo "$response" | tail -n1)
 content=$(echo "$response" | sed '$d')
 handle_response "Vérification finale des events" "$content" "$http_code" "$command"
+
+# 9. Création d'un event de type workout
+command="curl -X POST \"$API_URL/api/events\" -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\" -d '{
+    \"type\": \"WORKOUT\",
+    \"date\": \"2024-03-15T18:00:00\",
+    \"notes\": \"Entraînement de course\",
+    \"data\": {
+        \"duration\": 60,
+        \"calories_burned\": 500,
+        \"workout_type\": \"running\"
+    }
+}'"
+response=$(curl -s -w "\n%{http_code}" -X POST "$API_URL/api/events" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+    "type": "WORKOUT",
+    "date": "2024-03-15T18:00:00",
+    "notes": "Entraînement de course",
+    "data": {
+        "duration": 60,
+        "calories_burned": 500,
+        "workout_type": "running"
+    }
+}')
+http_code=$(echo "$response" | tail -n1)
+content=$(echo "$response" | sed '$d')
+handle_response "Création d'un event workout" "$content" "$http_code" "$command"
+
+# 10. Création d'un event de type repas
+command="curl -X POST \"$API_URL/api/events\" -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\" -d '{
+    \"type\": \"MEAL\",
+    \"date\": \"2024-03-15T12:30:00\",
+    \"notes\": \"Déjeuner\",
+    \"data\": {
+        \"meal_type\": \"lunch\"
+    },
+    \"meal_items\": [
+        {\"name\": \"apple\", \"quantity\": 1.0},
+        {\"name\": \"banana\", \"quantity\": 1.0}
+    ]
+}'"
+response=$(curl -s -w "\n%{http_code}" -X POST "$API_URL/api/events" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+    "type": "MEAL",
+    "date": "2024-03-15T12:30:00",
+    "notes": "Déjeuner",
+    "data": {
+        "meal_type": "lunch"
+    },
+    "meal_items": [
+        {"name": "apple", "quantity": 1.0},
+        {"name": "banana", "quantity": 1.0}
+    ]
+}')
+http_code=$(echo "$response" | tail -n1)
+content=$(echo "$response" | sed '$d')
+handle_response "Création d'un event repas" "$content" "$http_code" "$command"

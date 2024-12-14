@@ -1,9 +1,8 @@
 from typing import List, Optional
 from uuid import UUID
-import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, insert
 from sqlalchemy.orm import selectinload
@@ -15,7 +14,6 @@ from app.models import Food
 from app.models.user import User
 from app.auth.config import fastapi_users
 from app.models.meal_item import MealItem as MealItemModel
-from sqlalchemy.exc import IntegrityError
 from app.schemas.meal_item import MealItem
 
 router = APIRouter(
@@ -50,6 +48,7 @@ async def get_events(
             user_id=event.user_id,
             created_at=event.created_at,
             updated_at=event.updated_at,
+            data=event.data,
             meal_items=[
                 MealItem(
                     name=item.food.name,
@@ -72,13 +71,13 @@ async def create_event(
         type=event.type,
         date=event.date,
         notes=event.notes,
-        user_id=user.id,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
+        data=event.data,
+        user_id=user.id
     )
     db.add(db_event)
     await db.flush()
 
+    meal_items = []
     # Si c'est un repas, gérer les meal_items
     if event.type == "MEAL" and event.meal_items:
         # Récupérer les foods par leur nom
@@ -97,28 +96,17 @@ async def create_event(
 
         # Créer les meal_items
         for item in event.meal_items:
-            await db.execute(
-                insert(MealItemModel).values(
-                    event_id=db_event.id,
-                    food_id=foods[item.name],
-                    quantity=item.quantity
-                )
+            meal_item = MealItemModel(
+                event_id=db_event.id,
+                food_id=foods[item.name],
+                quantity=item.quantity
             )
+            db.add(meal_item)
+            meal_items.append({"name": item.name, "quantity": item.quantity})
 
     await db.commit()
 
-    # Recharger l'event avec ses relations
-    stmt = (
-        select(EventModel)
-        .where(EventModel.id == db_event.id)
-        .options(
-            selectinload(EventModel.meal_items).selectinload(MealItemModel.food)
-        )
-    )
-    result = await db.execute(stmt)
-    db_event = result.unique().scalar_one()
-
-    # Convertir en schéma de réponse
+    # Retourner directement les données que nous avons déjà
     return Event(
         id=db_event.id,
         type=db_event.type,
@@ -128,12 +116,9 @@ async def create_event(
         created_at=db_event.created_at,
         updated_at=db_event.updated_at,
         meal_items=[
-            MealItem(
-                name=item.food.name,
-                quantity=item.quantity
-            )
-            for item in db_event.meal_items
-        ] if db_event.meal_items else None
+            MealItem(**item)
+            for item in meal_items
+        ] if meal_items else None
     )
 
 @router.get("/version")
@@ -144,17 +129,6 @@ def get_version():
         "description": "API de gestion d'événements pour le suivi des repas et des entraînements",
         "environment": "production"
     }
-
-@router.get("/test")
-def test_reload():
-    return {"message": "Test reload working!"}
-
-@router.get("/search", response_model=List[Event])
-def search_events(q: str, db: Session = Depends(get_db)):
-    events = db.query(EventModel).filter(
-        EventModel.notes.ilike(f"%{q}%")
-    ).all()
-    return events
 
 @router.get("/{event_id}", response_model=Event)
 async def get_event(
@@ -183,6 +157,7 @@ async def get_event(
         type=event.type,
         date=event.date,
         notes=event.notes,
+        data=event.data,
         user_id=event.user_id,
         created_at=event.created_at,
         updated_at=event.updated_at,
@@ -219,7 +194,6 @@ async def update_event(
     # Mettre à jour les notes si fournies
     if event_update.notes is not None:
         db_event.notes = event_update.notes
-        db_event.updated_at = datetime.utcnow()
 
     # Mettre à jour les meal_items si fournis
     if event_update.meal_items is not None:
@@ -252,6 +226,14 @@ async def update_event(
                 )
             )
 
+    # Mettre à jour les données si fournies
+    if event_update.data is not None:
+        db_event.data = event_update.data
+
+    # Mettre à jour la date de modification
+    db_event.updated_at = datetime.now(timezone.utc)
+
+    # Valider les modifications
     await db.commit()
 
     # Recharger l'event avec ses relations mises à jour
@@ -271,6 +253,7 @@ async def update_event(
         type=db_event.type,
         date=db_event.date,
         notes=db_event.notes,
+        data=db_event.data,
         user_id=db_event.user_id,
         created_at=db_event.created_at,
         updated_at=db_event.updated_at,
@@ -284,15 +267,24 @@ async def update_event(
     )
 
 @router.delete("/{event_id}")
-def delete_event(event_id: UUID, db: Session = Depends(get_db)):
-    if (event := db.query(EventModel).filter(EventModel.id == event_id).first()) is None:
+async def delete_event(
+    event_id: int, 
+    db: AsyncSession = Depends(get_db), 
+    user: User = Depends(current_active_user)
+):
+    # Vérifier si l'événement existe
+    stmt = select(EventModel).where(
+        EventModel.id == event_id, 
+        EventModel.user_id == user.id
+    )
+    result = await db.execute(stmt)
+    event = result.scalar_one_or_none()
+    
+    if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     
-    db.delete(event)
-    db.commit()
+    # Supprimer l'événement
+    await db.delete(event)
+    await db.commit()
+    
     return {"status": "success", "message": "Event deleted"}
-
-@router.get("/test")
-def test_reload():
-    return {"message": "Test reload working!"}
- 

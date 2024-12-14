@@ -8,9 +8,12 @@ from app.models.food import Food as FoodModel
 from app.models.label import Label
 from app.schemas.food import Food as FoodSchema
 
-router = APIRouter(prefix="/config/foods")
+router = APIRouter(
+    prefix="/api/config",
+    tags=["config"]
+)
 
-@router.get("", response_model=List[FoodSchema])
+@router.get("/foods", response_model=List[FoodSchema])
 async def get_foods(language: str = "fr", db: AsyncSession = Depends(get_db)):
     # D'abord récupérer tous les foods
     result = await db.execute(select(FoodModel))
