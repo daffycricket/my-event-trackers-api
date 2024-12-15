@@ -115,6 +115,7 @@ async def create_event(
         user_id=db_event.user_id,
         created_at=db_event.created_at,
         updated_at=db_event.updated_at,
+        data=db_event.data,
         meal_items=[
             MealItem(**item)
             for item in meal_items
@@ -177,16 +178,13 @@ async def update_event(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(current_active_user)
 ):
-    # Récupérer l'event existant avec ses relations
+    # Récupérer l'event existant
     stmt = (
         select(EventModel)
         .where(EventModel.id == event_id, EventModel.user_id == user.id)
-        .options(
-            selectinload(EventModel.meal_items).selectinload(MealItemModel.food)
-        )
     )
     result = await db.execute(stmt)
-    db_event = result.unique().scalar_one_or_none()
+    db_event = result.scalar_one_or_none()
     
     if not db_event:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -218,13 +216,12 @@ async def update_event(
 
         # Créer les nouveaux meal_items
         for item in event_update.meal_items:
-            await db.execute(
-                insert(MealItemModel).values(
-                    event_id=event_id,
-                    food_id=foods[item.name],
-                    quantity=item.quantity
-                )
+            meal_item = MealItemModel(
+                event_id=event_id,
+                food_id=foods[item.name],
+                quantity=item.quantity
             )
+            db.add(meal_item)
 
     # Mettre à jour les données si fournies
     if event_update.data is not None:
@@ -235,6 +232,7 @@ async def update_event(
 
     # Valider les modifications
     await db.commit()
+    await db.refresh(db_event)
 
     # Recharger l'event avec ses relations mises à jour
     stmt = (
@@ -245,25 +243,25 @@ async def update_event(
         )
     )
     result = await db.execute(stmt)
-    db_event = result.unique().scalar_one()
+    updated_event = result.unique().scalar_one()
 
     # Convertir en schéma de réponse
     return Event(
-        id=db_event.id,
-        type=db_event.type,
-        date=db_event.date,
-        notes=db_event.notes,
-        data=db_event.data,
-        user_id=db_event.user_id,
-        created_at=db_event.created_at,
-        updated_at=db_event.updated_at,
+        id=updated_event.id,
+        type=updated_event.type,
+        date=updated_event.date,
+        notes=updated_event.notes,
+        data=updated_event.data,
+        user_id=updated_event.user_id,
+        created_at=updated_event.created_at,
+        updated_at=updated_event.updated_at,
         meal_items=[
             MealItem(
                 name=item.food.name,
                 quantity=item.quantity
             )
-            for item in db_event.meal_items
-        ] if db_event.meal_items else None
+            for item in updated_event.meal_items
+        ] if updated_event.meal_items else None
     )
 
 @router.delete("/{event_id}")

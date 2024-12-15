@@ -4,6 +4,7 @@ from typing import List, Optional, Dict
 from app.models.event import EventType
 from app.schemas.meal_item import MealItem
 from enum import Enum
+from pydantic import ConfigDict
 
 class WorkoutType(str, Enum):
     RUNNING = "running"
@@ -61,6 +62,8 @@ class Event(BaseModel):
     updated_at: datetime
     meal_items: Optional[List[MealItem]] = None
 
-    class Config:
-        from_attributes = True
-        populate_by_name = True 
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,
+        exclude_none=True
+    )
