@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from urllib.parse import quote_plus
+from fastapi import Response
 
 # Obtenir le chemin absolu vers le fichier .env
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,6 +27,8 @@ class Settings(BaseSettings):
     DB_HOST: str
     DB_PORT: str
     DB_NAME: str
+    DD_API_KEY: str
+    ENVIRONMENT: str
     
     @property
     def DATABASE_URL(self) -> str:        

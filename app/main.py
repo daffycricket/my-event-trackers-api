@@ -6,6 +6,10 @@ from .api.endpoints import (
     events_endpoint,
     config_endpoint
 )
+from app.logging_config import log_request_middleware
+from ddtrace import patch_all
+import logging
+from ddtrace.profiling import Profiler
 
 app = FastAPI()
 
@@ -17,6 +21,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Ajouter le middleware de logging AVANT les autres middlewares et routes
+app.middleware("http")(log_request_middleware)
 
 # Routes d'authentification
 app.include_router(
