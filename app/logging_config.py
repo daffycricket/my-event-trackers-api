@@ -30,10 +30,28 @@ class DatadogHTTPHandler(logging.Handler):
         except Exception as e:
             print(f"Erreur d'envoi du log à Datadog: {e}")
 
+class CustomFormatter(logging.Formatter):
+    def format(self, record):
+        if isinstance(record.msg, str):
+            return super().format(record)
+        
+        log_data = json.loads(record.msg)
+        if log_data.get("type") == "request":
+            return f"{self.formatTime(record)} {log_data['method']} {log_data['path']}"
+        elif log_data.get("type") == "response":
+            return f"{self.formatTime(record)} {log_data['method']} {log_data['path']} - {log_data['status_code']} ({log_data['response_time_ms']}ms)"
+        return super().format(record)
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 dd_handler = DatadogHTTPHandler(api_key=settings.DD_API_KEY)
 logger.addHandler(dd_handler)
+
+# Configuration du handler console
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(CustomFormatter('%(asctime)s %(message)s'))
+logger.addHandler(console_handler)
 
 async def log_request_middleware(request, call_next):
     correlation_id = str(uuid.uuid4())
